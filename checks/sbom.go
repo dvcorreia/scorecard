@@ -30,7 +30,8 @@ const CheckSBOM = "SBOM"
 
 //nolint:gochecknoinits
 func init() {
-	if err := registerCheck(CheckSBOM, SBOM, nil); err != nil {
+	// TODO: remove experiemntal set when v6 is released
+	if err := registerCheck(CheckSBOM, SBOM, SetExperimental(true)); err != nil {
 		// this should never happen
 		panic(err)
 	}

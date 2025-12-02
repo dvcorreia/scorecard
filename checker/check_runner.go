@@ -67,6 +67,7 @@ type CheckFn func(*CheckRequest) CheckResult
 type Check struct {
 	Fn                    CheckFn
 	SupportedRequestTypes []RequestType
+	Experimental          bool
 }
 
 // CheckNameToFnMap defined here for convenience.

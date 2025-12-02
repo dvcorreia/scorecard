@@ -32,7 +32,8 @@ const (
 
 //nolint:gochecknoinits
 func init() {
-	if err := registerCheck(CheckWebHooks, WebHooks, nil); err != nil {
+	// TODO: remove experiemntal set when v6 is released
+	if err := registerCheck(CheckWebHooks, WebHooks, SetExperimental(true)); err != nil {
 		// this should never happen
 		panic(err)
 	}

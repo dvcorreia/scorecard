@@ -31,7 +31,7 @@ func init() {
 	supportedRequestTypes := []checker.RequestType{
 		checker.FileBased,
 	}
-	if err := registerCheck(CheckSAST, SAST, supportedRequestTypes); err != nil {
+	if err := registerCheck(CheckSAST, SAST, SetSupportedRequestTypes(supportedRequestTypes)); err != nil {
 		// This should never happen.
 		panic(err)
 	}

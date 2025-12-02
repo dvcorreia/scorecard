@@ -28,7 +28,7 @@ const CheckCIIBestPractices = "CII-Best-Practices"
 
 //nolint:gochecknoinits
 func init() {
-	if err := registerCheck(CheckCIIBestPractices, CIIBestPractices, nil); err != nil {
+	if err := registerCheck(CheckCIIBestPractices, CIIBestPractices); err != nil {
 		// this should never happen
 		panic(err)
 	}

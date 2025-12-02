@@ -36,9 +36,16 @@ func getAll(overrideExperimental bool) checker.CheckNameToFnMap {
 	}
 
 	if _, experimental := os.LookupEnv("SCORECARD_EXPERIMENTAL"); !experimental {
-		// TODO: remove this check when v6 is released
-		delete(possibleChecks, CheckWebHooks)
-		delete(possibleChecks, CheckSBOM)
+		experimentalCheks := []string{}
+		for k, v := range possibleChecks {
+			if v.Experimental {
+				experimentalCheks = append(experimentalCheks, k)
+			}
+		}
+
+		for _, check := range experimentalCheks {
+			delete(possibleChecks, check)
+		}
 	}
 
 	return possibleChecks
@@ -55,16 +62,41 @@ func GetAllWithExperimental() checker.CheckNameToFnMap {
 	return getAll(true /*overrideExperimental*/)
 }
 
-func registerCheck(name string, fn checker.CheckFn, supportedRequestTypes []checker.RequestType) error {
+type RegisterCheckOption func(*checker.Check)
+
+// SetSupportedRequestTypes sets the supported request types for a check.
+func SetSupportedRequestTypes(supportedRequestTypes []checker.RequestType) RegisterCheckOption {
+	return func(c *checker.Check) {
+		c.SupportedRequestTypes = supportedRequestTypes
+	}
+}
+
+// SetExperimental sets whether a check is experimental.
+func SetExperimental(experimental bool) RegisterCheckOption {
+	return func(c *checker.Check) {
+		c.Experimental = experimental
+	}
+}
+
+func registerCheck(name string, fn checker.CheckFn, opts ...RegisterCheckOption) error {
 	if name == "" {
 		return errInternalNameCannotBeEmpty
 	}
 	if fn == nil {
 		return errInternalCheckFuncCannotBeNil
 	}
-	allChecks[name] = checker.Check{
-		Fn:                    fn,
-		SupportedRequestTypes: supportedRequestTypes,
+
+	checker := checker.Check{
+		Fn: fn,
 	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&checker)
+		}
+	}
+
+	allChecks[name] = checker
+
 	return nil
 }

@@ -32,7 +32,7 @@ func init() {
 		checker.CommitBased,
 		checker.FileBased,
 	}
-	if err := registerCheck(CheckTokenPermissions, TokenPermissions, supportedRequestTypes); err != nil {
+	if err := registerCheck(CheckTokenPermissions, TokenPermissions, SetSupportedRequestTypes(supportedRequestTypes)); err != nil {
 		// This should never happen.
 		panic(err)
 	}

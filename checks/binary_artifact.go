@@ -32,7 +32,7 @@ func init() {
 		checker.CommitBased,
 		checker.FileBased,
 	}
-	if err := registerCheck(CheckBinaryArtifacts, BinaryArtifacts, supportedRequestTypes); err != nil {
+	if err := registerCheck(CheckBinaryArtifacts, BinaryArtifacts, SetSupportedRequestTypes(supportedRequestTypes)); err != nil {
 		// this should never happen
 		panic(err)
 	}

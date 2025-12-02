@@ -28,7 +28,7 @@ const CheckBranchProtection = "Branch-Protection"
 
 //nolint:gochecknoinits
 func init() {
-	if err := registerCheck(CheckBranchProtection, BranchProtection, nil); err != nil {
+	if err := registerCheck(CheckBranchProtection, BranchProtection); err != nil {
 		// this should never happen
 		panic(err)
 	}

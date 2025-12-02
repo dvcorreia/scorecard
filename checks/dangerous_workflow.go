@@ -32,7 +32,7 @@ func init() {
 		checker.CommitBased,
 		checker.FileBased,
 	}
-	if err := registerCheck(CheckDangerousWorkflow, DangerousWorkflow, supportedRequestTypes); err != nil {
+	if err := registerCheck(CheckDangerousWorkflow, DangerousWorkflow, SetSupportedRequestTypes(supportedRequestTypes)); err != nil {
 		// this should never happen
 		panic(err)
 	}

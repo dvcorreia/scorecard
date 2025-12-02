@@ -31,7 +31,7 @@ func init() {
 	supportedRequestTypes := []checker.RequestType{
 		checker.FileBased,
 	}
-	if err := registerCheck(CheckFuzzing, Fuzzing, supportedRequestTypes); err != nil {
+	if err := registerCheck(CheckFuzzing, Fuzzing, SetSupportedRequestTypes(supportedRequestTypes)); err != nil {
 		// this should never happen
 		panic(err)
 	}
