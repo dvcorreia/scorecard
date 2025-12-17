@@ -22,6 +22,18 @@ type Doc interface {
 	CheckExists(name string) bool
 }
 
+const (
+	RepoLocal    = "local"
+	RepoGitLocal = "git-local" // is not supported by any check yet.
+	RepoGitHub   = "github"
+	RepoGitLab   = "gitlab"
+)
+
+type Repo struct {
+	Type         string
+	Experimental bool
+}
+
 // CheckDoc defines the documentation interface for a check.
 type CheckDoc interface {
 	GetName() string
@@ -30,6 +42,6 @@ type CheckDoc interface {
 	GetDescription() string
 	GetRemediation() []string
 	GetTags() []string
-	GetSupportedRepoTypes() []string
+	GetSupportedRepoTypes() []Repo
 	GetDocumentationURL(commitish string) string
 }

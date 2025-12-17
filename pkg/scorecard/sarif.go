@@ -532,7 +532,7 @@ func contains(l []string, elt string) bool {
 	return false
 }
 
-func computeCategory(checkName string, repos []string) (string, error) {
+func computeCategory(checkName string, repos []docs.Repo) (string, error) {
 	// In terms of sets, local < Git-local < GitHub.
 	switch {
 	default:

@@ -26,6 +26,24 @@ import (
 //go:embed checks.yaml
 var checksYAML []byte
 
+var _ yaml.Unmarshaler = &Repo{}
+
+// Repo stores the repo's information.
+type Repo struct {
+	Type         string
+	Experimental bool
+}
+
+func (r *Repo) UnmarshalYAML(unmarshal func(any) error) error {
+	var typ string
+	if err := unmarshal(&typ); err == nil {
+		r.Type = typ
+		r.Experimental = false
+		return nil
+	}
+	return unmarshal(&r)
+}
+
 // Check stores a check's information.
 //
 //nolint:govet
@@ -34,7 +52,7 @@ type Check struct {
 	Short       string   `yaml:"short"`
 	Description string   `yaml:"description"`
 	Tags        string   `yaml:"tags"`
-	Repos       string   `yaml:"repos"`
+	Repos       []Repo   `yaml:"repos"`
 	Remediation []string `yaml:"remediation"`
 	Name        string   `yaml:"-"`
 	URL         string   `yaml:"-"`
