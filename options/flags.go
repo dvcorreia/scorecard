@@ -62,6 +62,9 @@ const (
 	// FlagShowAnnotations is the flag name for outputting annotations on checks.
 	FlagShowAnnotations = "show-annotations"
 
+	// FlagIgnoreUnsupportedChecks is the flag name for ignoring unsupported checks.
+	FlagIgnoreUnsupportedChecks = "ignore-unsupported-checks"
+
 	// FlagChecks is the flag name for specifying which checks to run.
 	FlagChecks = "checks"
 
@@ -181,6 +184,13 @@ func (o *Options) AddFlags(cmd *cobra.Command) {
 		FlagShowAnnotations,
 		o.ShowAnnotations,
 		"show maintainers annotations for checks",
+	)
+
+	cmd.Flags().BoolVar(
+		&o.IgnoreUnsupportedChecks,
+		FlagIgnoreUnsupportedChecks,
+		o.IgnoreUnsupportedChecks,
+		"ignore unsupported repo check results (e.g., skip GitHub-only checks when running against GitLab)",
 	)
 
 	cmd.Flags().IntVar(

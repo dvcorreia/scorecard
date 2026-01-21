@@ -36,6 +36,7 @@ import (
 	orgpkg "github.com/ossf/scorecard/v5/cmd/internal/org"
 	pmc "github.com/ossf/scorecard/v5/cmd/internal/packagemanager"
 	docs "github.com/ossf/scorecard/v5/docs/checks"
+	"github.com/ossf/scorecard/v5/finding"
 	sclog "github.com/ossf/scorecard/v5/log"
 	"github.com/ossf/scorecard/v5/options"
 	"github.com/ossf/scorecard/v5/pkg/scorecard"
@@ -235,6 +236,41 @@ func printCheckResults(repo string, enabledChecks checker.CheckNameToFnMap) {
 	}
 }
 
+// filterUnsupportedChecks filters check results that are not supported for the
+// current repo.
+func filterUnsupportedChecks(result *scorecard.Result) int {
+	filteredChecks := make([]checker.CheckResult, 0, len(result.Checks))
+
+	for _, check := range result.Checks {
+		if isCheckUnsupported(&check) {
+			fmt.Fprintf(os.Stderr, "Skipping unsupported check: %s (not supported for this repo)\n", check.Name)
+			continue
+		}
+
+		filteredChecks = append(filteredChecks, check)
+	}
+
+	skipped := len(result.Checks) - len(filteredChecks)
+	result.Checks = filteredChecks
+	return skipped
+}
+
+// isCheckUnsupported determines if a check result indicates it's not supported.
+// A check is considered unsupported if all its findings have OutcomeNotSupported.
+func isCheckUnsupported(check *checker.CheckResult) bool {
+	if len(check.Findings) == 0 {
+		return false
+	}
+
+	for _, f := range check.Findings {
+		if f.Outcome != finding.OutcomeNotSupported {
+			return false
+		}
+	}
+
+	return true
+}
+
 // makeRepo helps turn a URI into the appropriate clients.Repo.
 // currently this is a decision between GitHub, GitLab, and Azure DevOps,
 // but may expand in the future.
@@ -310,6 +346,14 @@ func processRepo(
 	}
 
 	result.Metadata = append(result.Metadata, o.Metadata...)
+
+	// Filter out unsupported checks if flag is set and checks weren't explicitly specified
+	if o.IgnoreUnsupportedChecks && len(o.ChecksToRun) == 0 {
+		skipped := filterUnsupportedChecks(&result)
+		if skipped > 0 {
+			fmt.Fprintf(os.Stderr, "Filtered out %d unsupported check results\n", skipped)
+		}
+	}
 
 	// Stable order
 	sort.Slice(result.Checks, func(i, j int) bool {
