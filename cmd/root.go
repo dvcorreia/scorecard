@@ -32,7 +32,6 @@ import (
 	"github.com/ossf/scorecard/v5/clients/azuredevopsrepo"
 	"github.com/ossf/scorecard/v5/clients/githubrepo"
 	"github.com/ossf/scorecard/v5/clients/gitlabrepo"
-	"github.com/ossf/scorecard/v5/clients/localdir"
 	orgpkg "github.com/ossf/scorecard/v5/cmd/internal/org"
 	pmc "github.com/ossf/scorecard/v5/cmd/internal/packagemanager"
 	docs "github.com/ossf/scorecard/v5/docs/checks"
@@ -170,15 +169,14 @@ func rootCmd(o *options.Options) error {
 
 	enabledProbes := o.Probes()
 
-	opts := []scorecard.Option{
+	baseOpts := []scorecard.Option{
 		scorecard.WithLogLevel(sclog.ParseLevel(o.LogLevel)),
 		scorecard.WithCommitSHA(o.Commit),
 		scorecard.WithCommitDepth(o.CommitDepth),
 		scorecard.WithProbes(enabledProbes),
-		scorecard.WithChecks(checks),
 	}
 	if strings.EqualFold(o.FileMode, options.FileModeGit) {
-		opts = append(opts, scorecard.WithFileModeGit())
+		baseOpts = append(baseOpts, scorecard.WithFileModeGit())
 	}
 
 	// Track whether any check produced a runtime error during scans. We want to
@@ -187,7 +185,28 @@ func rootCmd(o *options.Options) error {
 	var sawRuntimeErr bool
 	// Iterate and scan each repo using a helper to keep rootCmd small.
 	for _, uri := range repoURLs {
-		res, err := processRepo(ctx, uri, o, enabledProbes, enabledChecks, opts, checkDocs, pol)
+		repo, err := makeRepoForURI(uri, o)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", uri, err)
+			continue
+		}
+
+		repoChecks, err := filterChecksForRepo(repo, uri, enabledChecks, checkDocs, o.IgnoreUnsupportedChecks)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", uri, err)
+			continue
+		}
+
+		checkList := make([]string, 0, len(repoChecks))
+		for checkName := range repoChecks {
+			checkList = append(checkList, checkName)
+		}
+
+		opts := make([]scorecard.Option, len(baseOpts))
+		copy(opts, baseOpts)
+		opts = append(opts, scorecard.WithChecks(checkList))
+
+		res, err := processRepo(ctx, repo, uri, o, enabledProbes, repoChecks, opts, checkDocs, pol)
 		if err != nil {
 			// processRepo already logged details; skip this URI.
 			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", uri, err)
@@ -267,11 +286,12 @@ func makeRepo(uri string) (clients.Repo, error) {
 	return nil, fmt.Errorf("unable to parse as github, gitlab, or azuredevops: %w", compositeErr)
 }
 
-// processRepo performs the scanning and formatting for a single repo URI.
-// It returns the Result when successful or an error describing why the URI
+// processRepo performs the scanning and formatting for a single repo.
+// It returns the Result when successful or an error describing why the repo
 // should be skipped.
 func processRepo(
 	ctx context.Context,
+	repo clients.Repo,
 	uri string,
 	o *options.Options,
 	enabledProbes []string,
@@ -280,21 +300,6 @@ func processRepo(
 	checkDocs docs.Doc,
 	pol *policy.ScorecardPolicy,
 ) (*scorecard.Result, error) {
-	var repo clients.Repo
-	var err error
-
-	if o.Local != "" && uri == o.Local {
-		repo, err = localdir.MakeLocalDirRepo(uri)
-		if err != nil {
-			return nil, fmt.Errorf("localdir: %w", err)
-		}
-	} else {
-		repo, err = makeRepo(uri)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// Start banners with repo uri (show banners in default format only)
 	if o.Format == options.FormatDefault {
 		if len(enabledProbes) > 0 {

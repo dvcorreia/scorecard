@@ -80,6 +80,8 @@ const (
 	FlagCommitDepth = "commit-depth"
 
 	FlagProbes = "probes"
+
+	FlagIgnoreUnsupportedChecks = "ignore-unsupported-checks"
 )
 
 // Command is an interface for handling options for command-line utilities.
@@ -206,6 +208,13 @@ func (o *Options) AddFlags(cmd *cobra.Command) {
 		FlagProbes,
 		o.ProbesToRun,
 		"Probes to run.",
+	)
+
+	cmd.Flags().BoolVar(
+		&o.IgnoreUnsupportedChecks,
+		FlagIgnoreUnsupportedChecks,
+		o.IgnoreUnsupportedChecks,
+		"only run checks that support the repository type",
 	)
 
 	// TODO(options): Extract logic
