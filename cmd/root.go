@@ -176,6 +176,7 @@ func rootCmd(o *options.Options) error {
 		scorecard.WithCommitDepth(o.CommitDepth),
 		scorecard.WithProbes(enabledProbes),
 		scorecard.WithChecks(checks),
+		scorecard.WithSkipUnsupportedChecks(o.SkipUnsupportedChecks),
 	}
 	if strings.EqualFold(o.FileMode, options.FileModeGit) {
 		opts = append(opts, scorecard.WithFileModeGit())

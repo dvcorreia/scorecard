@@ -34,6 +34,7 @@ import (
 	"github.com/ossf/scorecard/v5/clients/localdir"
 	"github.com/ossf/scorecard/v5/clients/ossfuzz"
 	"github.com/ossf/scorecard/v5/config"
+	docs "github.com/ossf/scorecard/v5/docs/checks"
 	sce "github.com/ossf/scorecard/v5/errors"
 	"github.com/ossf/scorecard/v5/finding"
 	"github.com/ossf/scorecard/v5/internal/packageclient"
@@ -252,17 +253,18 @@ func runEnabledProbes(request *checker.CheckRequest,
 }
 
 type runConfig struct {
-	client        clients.RepoClient
-	vulnClient    clients.VulnerabilitiesClient
-	ciiClient     clients.CIIBestPracticesClient
-	projectClient packageclient.ProjectPackageClient
-	ossfuzzClient clients.RepoClient
-	commit        string
-	logLevel      sclog.Level
-	checks        []string
-	probes        []string
-	commitDepth   int
-	gitMode       bool
+	client                clients.RepoClient
+	vulnClient            clients.VulnerabilitiesClient
+	ciiClient             clients.CIIBestPracticesClient
+	projectClient         packageclient.ProjectPackageClient
+	ossfuzzClient         clients.RepoClient
+	commit                string
+	logLevel              sclog.Level
+	checks                []string
+	probes                []string
+	commitDepth           int
+	gitMode               bool
+	skipUnsupportedChecks bool
 }
 
 type Option func(*runConfig) error
@@ -358,6 +360,13 @@ func WithFileModeGit() Option {
 	}
 }
 
+func WithSkipUnsupportedChecks(skip bool) Option {
+	return func(c *runConfig) error {
+		c.skipUnsupportedChecks = skip
+		return nil
+	}
+}
+
 // Run analyzes a given repository and returns the result. You can modify the
 // run behavior by passing in [Option] arguments. In the absence of a particular
 // option a default is used. Refer to the various Options for details.
@@ -387,13 +396,14 @@ func Run(ctx context.Context, repo clients.Repo, opts ...Option) (Result, error)
 
 	var requiredRequestTypes []checker.RequestType
 	var err error
-	switch repo.(type) {
-	case *localdir.Repo:
+	repoType := getRepoType(repo)
+	switch repoType {
+	case RepoLocal:
 		requiredRequestTypes = append(requiredRequestTypes, checker.FileBased)
 		if c.client == nil {
 			c.client = localdir.CreateLocalDirClient(ctx, logger)
 		}
-	case *githubrepo.Repo:
+	case RepoGitHub:
 		if c.client == nil {
 			var opts []githubrepo.Option
 			if c.gitMode {
@@ -405,14 +415,14 @@ func Run(ctx context.Context, repo clients.Repo, opts ...Option) (Result, error)
 			}
 			c.client = client
 		}
-	case *gitlabrepo.Repo:
+	case RepoGitLab:
 		if c.client == nil {
 			c.client, err = gitlabrepo.CreateGitlabClient(ctx, repo.Host())
 			if err != nil {
 				return Result{}, fmt.Errorf("creating gitlab client: %w", err)
 			}
 		}
-	case *azuredevopsrepo.Repo:
+	case RepoAzureDevOPs:
 		if c.client == nil {
 			c.client, err = azuredevopsrepo.CreateAzureDevOpsClient(ctx, repo)
 			if err != nil {
@@ -430,6 +440,53 @@ func Run(ctx context.Context, repo clients.Repo, opts ...Option) (Result, error)
 		return Result{}, fmt.Errorf("getting enabled checks: %w", err)
 	}
 
+	if c.skipUnsupportedChecks {
+		removeUnsupportedChecks(logger, checksToRun, repoType)
+		if len(checksToRun) == 0 {
+			return Result{}, fmt.Errorf("no checks support repository type: %s", repoType)
+		}
+	}
+
 	return runScorecard(ctx, repo, c.commit, c.commitDepth, checksToRun, c.probes,
 		c.client, c.ossfuzzClient, c.ciiClient, c.vulnClient, c.projectClient)
+}
+
+// TODO: write documentation
+func removeUnsupportedChecks(logger *sclog.Logger, checks checker.CheckNameToFnMap, repoType RepoType) {
+	if repoType == RepoUnknown {
+		logger.Info("unknown repo type, running all checks")
+		return
+	}
+
+	checksDocs, err := docs.Read()
+	if err != nil {
+		logger.Info(fmt.Sprintf("unable to read checks.yaml: %v", err))
+		return
+	}
+
+	for checkName := range checks {
+		checkDoc, err := checksDocs.GetCheck(checkName)
+		if err != nil {
+			logger.Info(fmt.Sprintf("unable to get check documentation: %v", err))
+			continue
+		}
+
+		checkRepos := checkDoc.GetSupportedRepoTypes()
+		var supported bool
+		for _, cr := range checkRepos {
+			checkRepo := repoTypeFromString(cr)
+
+			if checkRepo == repoType {
+				supported = true
+				break
+			}
+		}
+
+		fmt.Println("checking", repoType, checkName, supported)
+
+		if !supported {
+			logger.Info("skipping unsupported %s check: %v", repoType, checkName)
+			delete(checks, checkName)
+		}
+	}
 }
